@@ -1,0 +1,196 @@
+﻿Experiment  05
+
+
+For dataset:- mjO1yZyi6bM
+
+
+import pandas as pd
+df = pd.read_csv("./alan_walker.csv")
+df.head(5)
+print(df.shape)
+df.info()
+df.pubdate.value_counts()
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+import seaborn as sns
+
+
+#Heat Map for missing values
+plt.figure(figsize=(17, 5))
+sns.heatmap(df.isnull(), cbar=True, yticklabels=False)
+plt.xlabel("Column_Name", size=14, weight="bold")
+plt.title("Places of missing values in column",fontweight="bold",size=17)
+plt.show()
+
+
+import plotly.graph_objects as go
+Top_Title_Of_comments= df['title'].value_counts().head(10)
+print (Top_Title_Of_comments)
+
+
+import nltk
+stop=nltk.download('stopwords')
+!pip install tweet-preprocessor
+df=df.drop_duplicates('description')
+df.head(5)
+
+
+#Drop commentss which have empty text field
+df['description'].replace(' ', np.nan, inplace=True)
+df.dropna(subset=['description'], inplace=True)
+len(df)
+df = df.reset_index(drop=True)
+df.sample(5)
+
+
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
+from nltk.corpus import stopwords
+stop = stopwords.words('english')
+
+
+sns.set_style('whitegrid')
+%matplotlib inline
+stop=stop +['hello','good','http','love','happy','thanks','thank','heart','me','mood','video','india']
+def plot_20_most_common_words(count_data, count_vectorizer):
+    import matplotlib.pyplot as plt
+    words = count_vectorizer.get_feature_names_out()
+    total_counts = np.zeros(len(words))
+    for t in count_data:
+        total_counts+=t.toarray()[0]
+
+
+    count_dict = (zip(words, total_counts))
+    count_dict = sorted(count_dict, key=lambda x:x[1], reverse=True)[0:20]
+    words = [w[0] for w in count_dict]
+    counts = [w[1] for w in count_dict]
+    x_pos = np.arange(len(words))
+
+
+    plt.figure(2, figsize=(40, 40))
+    plt.subplot(title='20 most common words')
+    sns.set_context("notebook", font_scale=4, rc={"lines.linewidth": 2.5})
+
+
+    sns.barplot(x=x_pos, y=counts, palette='husl')
+    #sns.barplot(x_pos, counts, palette='husl')
+    plt.xticks(x_pos, words, rotation=90)
+    plt.xlabel('words')
+    plt.ylabel('counts')
+    plt.show()
+ # Initialise the count vectorizer with the English stop words
+count_vectorizer = CountVectorizer(stop_words=stop)
+# Fit and transform the processed titles
+count_data = count_vectorizer.fit_transform(df['description'])
+# Visualise the 20 most common words
+plot_20_most_common_words(count_data, count_vectorizer)
+plt.savefig('saved_figure.png')
+import cufflinks as cf
+cf.go_offline()
+cf.set_config_file(offline=False, world_readable=True)
+
+
+def get_top_n_bigram(corpus, n=None):
+    vec = CountVectorizer(ngram_range=(2, 4), stop_words='english').fit(corpus)
+    bag_of_words = vec.transform(corpus)
+    sum_words = bag_of_words.sum(axis=0)
+    words_freq = [(word, sum_words[0, idx]) for word, idx in vec.vocabulary_.items()]
+    words_freq =sorted(words_freq, key = lambda x: x[1], reverse=True)
+    return words_freq[:n]
+common_words = get_top_n_bigram(df['description'], 8)
+mydict={}
+for word, freq in common_words:
+    bigram_df  = pd.DataFrame(common_words, columns = ['ngram' , 'count'])
+bigram_df.groupby('ngram').sum()['count'].sort_values(ascending=False).sort_values().plot.barh(title='Top 8 bigrams ', color='orange', width=.4, figsize=(12, 8), stacked = True)
+
+
+
+
+!pip install textblob
+from textblob import TextBlob
+def get_subjectivity(text):
+    return TextBlob(text).sentiment.subjectivity
+
+
+def get_polarity(text):
+    return TextBlob(text).sentiment.polarity
+
+
+df['subjectivity'] = df['description'].apply(get_subjectivity)
+df['polarity'] = df['description'].apply(get_polarity)
+df.head()
+
+
+df['textblob_score'] = df['description'].apply(lambda x: TextBlob(x).sentiment.polarity)
+
+
+neutral_threshold = 0.05
+
+
+# Convert polarity score into sentiment categories
+df['textblob_sentiment'] = df['textblob_score'].apply(lambda c: 'Positive' if c >= neutral_threshold else ('Negative' if c <= -(neutral_threshold) else 'Neutral'))
+
+
+textblob_df = df[['description', 'textblob_sentiment', 'likecount']]
+textblob_df
+
+
+textblob_df['textblob_sentiment'].value_counts()
+textblob_df['textblob_sentiment'].value_counts().plot.barh(title='Sentiment Analysis ', color='orange', width=.4, figsize=(10, 8), stacked = True)
+
+
+
+
+df_positive=textblob_df[textblob_df['textblob_sentiment']=='Positive']
+df_Very_positive=df_positive[df_positive['likecount']>0]
+df_Very_positive.head()
+
+
+df_negative=textblob_df[textblob_df['textblob_sentiment']=='Negative']
+df_negative.head()
+
+
+df_neutral=textblob_df[textblob_df['textblob_sentiment']=='Neutral']
+df_neutral.head()
+
+
+from wordcloud import WordCloud, STOPWORDS
+from PIL import Image
+
+
+#Creating the text variable
+positive_tw = " ".join(t for t in df_Very_positive.description)
+
+
+# Creating word_cloud with text as argument in .generate() metho
+word_cloud1 = WordCloud(collocations = False, background_color = 'white').generate(positive_tw)
+
+
+# Display the generated Word Cloud
+plt.imshow(word_cloud1, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+
+
+
+
+negative_tw = " ".join(t for t in df_negative.description)
+word_cloud2 = WordCloud(collocations = False, background_color = 'white').generate(negative_tw)
+
+
+plt.imshow(word_cloud2, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+
+
+
+
+neutral_tw = " ".join(t for t in df_neutral.description)
+word_cloud2 = WordCloud(collocations = False, background_color = 'white').generate(neutral_tw)
+
+
+plt.imshow(word_cloud2, interpolation='bilinear')
+plt.axis("off")
+plt.show()
